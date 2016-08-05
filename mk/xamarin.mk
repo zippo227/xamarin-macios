@@ -1,6 +1,6 @@
 ifdef ENABLE_XAMARIN
-NEEDED_MACCORE_VERSION := 2ff8293d6e2a0d37a7bf784cdd41b079afa531dd
-NEEDED_MACCORE_BRANCH := master
+NEEDED_MACCORE_VERSION := 95f6f3e2cd38595fbcc65036f5d0f478fb02602a
+NEEDED_MACCORE_BRANCH := watchos-debugging-on-device
 
 MACCORE_DIRECTORY := maccore
 MACCORE_MODULE    := git@github.com:xamarin/maccore.git
