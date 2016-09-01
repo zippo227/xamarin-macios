@@ -862,23 +862,6 @@ namespace Xamarin.Bundler {
 
 			Namespaces.Initialize ();
 
-			var hasBitcodeCapableRuntime = false;
-			switch (Platform) {
-			case ApplePlatform.iOS:
-#if ENABLE_BITCODE_ON_IOS
-				hasBitcodeCapableRuntime = true;
-#endif
-				break;
-			case ApplePlatform.TVOS:
-			case ApplePlatform.WatchOS:
-				hasBitcodeCapableRuntime = true;
-				break;
-			}
-			if (hasBitcodeCapableRuntime && EnableProfiling && FastDev) {
-				ErrorHelper.Warning (94, "Both profiling (--profiling) and incremental builds (--fastdev) are currently not supported when building for {0}, and incremental builds have been disabled (this will be fixed in a future release).", PlatformName);
-				FastDev = false;
-			}
-
 			InitializeCommon ();
 
 			Driver.Watch ("Resolve References", 1);
@@ -1078,10 +1061,36 @@ namespace Xamarin.Bundler {
 
 		public static void CopyMsymData (string src, string dest)
 		{
+			if (string.IsNullOrEmpty (src) || string.IsNullOrEmpty (dest))
+				return;
 			if (!Directory.Exists (src)) // got no aot data
 				return;
-			var copyProcess = new MsymCopyTask (src, dest);
-			copyProcess.Execute ();
+
+			var p = new Process ();
+			p.StartInfo.UseShellExecute = false;
+			p.StartInfo.RedirectStandardError = true;
+			p.StartInfo.FileName = "mono-symbolicate";
+			p.StartInfo.Arguments = $"store-symbols \"{src}\" \"{dest}\"";
+
+			try {
+				if (p.Start ()) {
+					var error = p.StandardError.ReadToEnd();
+					p.WaitForExit ();
+					if (p.ExitCode == 0)
+						return;
+					else {
+						ErrorHelper.Warning (95, $"Aot files could not be copied to the destination directory: {dest}"); 
+						return;
+					}
+				}
+
+				ErrorHelper.Warning (95, $"Aot files could not be copied to the destination directory {dest}: Could not start process."); 
+				return;
+			}
+			catch (Exception e) {
+				ErrorHelper.Warning (95, $"Aot files could not be copied to the destination directory {dest}: Could not start process."); 
+				return;
+			}
 		}
 
 		void BuildFinalExecutable ()
@@ -1841,29 +1850,6 @@ namespace Xamarin.Bundler {
 
 			if (Compile () != 0)
 				throw new MonoTouchException (4109, true, "Failed to compile the generated registrar code. Please file a bug report at http://bugzilla.xamarin.com");
-		}
-	}
-
-	public class MsymCopyTask : ProcessTask {
-		
-		public string Source { get; set; }
-		public string Destination { get; set; }
-		
-		public MsymCopyTask (string source, string destination)
-		{
-			Source = source;
-			Destination = destination;
-			ProcessStartInfo.FileName = "mono-symbolicate";
-			ProcessStartInfo.Arguments = $"store-symbols \"{Source}\" \"{Destination}\"";
-		}
-		
-		protected override void Build ()
-		{
-			var exit_code = base.Start ();
-			if (exit_code == 0)
-				return;
-			
-			Console.Error.WriteLine ("Msym files could not be copied from {Source} to {Destination}");
 		}
 	}
 
