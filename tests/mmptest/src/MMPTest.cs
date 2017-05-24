@@ -14,18 +14,7 @@ namespace Xamarin.MMP.Tests
 	{
 		void RunMMPTest (Action <string> test)
 		{
-			string tmpDir = Path.Combine (Path.GetTempPath (), "mmp-test-dir");
-			try {
-				// Clean out any existing build there first to prevent strange behavior
-				if (Directory.Exists (tmpDir))
-					Directory.Delete (tmpDir, true);
-
-				Directory.CreateDirectory (tmpDir);
-				test (tmpDir);
-			}
-			finally {
-				Directory.Delete (tmpDir, true);
-			}
+			test (Cache.CreateTemporaryDirectory ());
 		}
 
 		// TODO - We have multiple tests using this. It doesn't take that long, but is it worth caching?
@@ -512,9 +501,6 @@ namespace Xamarin.MMP.Tests
 					TI.UnifiedTestConfig test = new TI.UnifiedTestConfig (tmpDir) { CSProjConfig = "<MonoBundlingExtraArgs>--resource=Foo.bar</MonoBundlingExtraArgs>", XM45 = xm45 };
 					TI.GenerateAndBuildUnifiedExecutable (test, shouldFail: true);
 
-					string generatedProjectPath = Path.Combine (tmpDir, TI.GetUnifiedExecutableProjectName (test));
-					string generatedMainPath = Path.Combine (tmpDir, "main.cs");
-
 					// Next, build again without the error MonoBundlingExtraArgs
 					test.CSProjConfig = "";
 					TI.GenerateUnifiedExecutableProject (test);
@@ -673,6 +659,18 @@ namespace Xamarin.MMP.Tests
 				if (mmpHandler != null)
 					test.CSProjConfig = "<HttpClientHandler>" + mmpHandler + "</HttpClientHandler>";
 				TI.TestUnifiedExecutable (test);
+			});
+		}
+
+		[Test]
+		[TestCase ("Debug")]
+		[TestCase ("Release")]
+		public void SystemMonoNotEmbedded (string configuration)
+		{
+			RunMMPTest (tmpDir => {
+				TI.UnifiedTestConfig test = new TI.UnifiedTestConfig (tmpDir);
+				test.CSProjConfig = "<MonoBundlingExtraArgs>--embed-mono=no</MonoBundlingExtraArgs>";
+				TI.TestSystemMonoExecutable (test, configuration: configuration);
 			});
 		}
 	}

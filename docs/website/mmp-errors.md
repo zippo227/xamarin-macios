@@ -72,6 +72,8 @@ The easiest way to get exact version information is to use the **Xamarin Studio*
 
 <h3><a name="MM0099">MM0099: Internal error {0}. Please file a bug report with a test case (http://bugzilla.xamarin.com).</h3>
 
+<h3><a name="MM0114">MM0114: Hybrid AOT compilation requires all assemblies to be AOT compiled.</h3>
+
 # MM1xxx: file copy / symlinks (project related)
 
 <h3><a name="MM1034">MM1034: Could not create symlink '{file}' -> '{target}': error {number}</h3>
@@ -143,6 +145,8 @@ The easiest way to get exact version information is to use the **Xamarin Studio*
 <h3><a name="MM2017">MM2017: Could not process XML description: {0}</h3>
 
 <h3><a name="MM202x"/>MM202x: Binding Optimizer failed processing `...`.</h3>
+
+<h3><a name="MM2100"/>MM2100: Xamarin.Mac Classic API does not support Platform Linking. </h3>
 
 # MM3xxx: AOT
 

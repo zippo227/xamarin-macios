@@ -274,6 +274,7 @@ namespace Xamarin.Bundler {
 						}
 					}
 				},
+				{ "linkplatform", "Link only the Xamarin.Mac.dll platform assembly", v => App.LinkMode = LinkMode.Platform },
 				{ "linksdkonly", "Link only the SDK assemblies", v => App.LinkMode = LinkMode.SDKOnly },
 				{ "linkskip=", "Skip linking of the specified assembly", v => App.LinkSkipped.Add (v) },
 				{ "i18n=", "List of i18n assemblies to copy to the output directory, separated by commas (none,all,cjk,mideast,other,rare,west)", v => App.I18n = LinkerOptions.ParseI18nAssemblies (v) },
@@ -453,6 +454,9 @@ namespace Xamarin.Bundler {
 			if (targetFramework == TargetFramework.Empty)
 				throw new MonoMacException (1404, true, "Target framework '{0}' is invalid.", userTargetFramework);
 
+			if (IsClassic && App.LinkMode == LinkMode.Platform)
+				throw new MonoMacException (2100, true, "Xamarin.Mac Classic API does not support Platofmr Linking.");
+
 			// sanity check as this should never happen: we start out by not setting any
 			// Unified/Classic properties, and only IsUnifiedMobile if we are are on the
 			// XM framework. If we are not, we set IsUnifiedFull to true iff we detect
@@ -468,9 +472,16 @@ namespace Xamarin.Bundler {
 			if (IsUnified == IsClassic || (IsUnified && IsUnifiedCount != 1))
 				throw new Exception ("IsClassic/IsUnified/IsUnifiedMobile/IsUnifiedFullSystemFramework/IsUnifiedFullXamMacFramework logic regression");
 
-			if ((IsUnifiedFullSystemFramework || IsUnifiedFullXamMacFramework) && (App.LinkMode != LinkMode.None))
-				throw new MonoMacException (2007, true,
-					"Xamarin.Mac Unified API against a full .NET framework does not support linking. Pass the -nolink flag.");
+			if (IsUnifiedFullSystemFramework || IsUnifiedFullXamMacFramework) {
+				switch (App.LinkMode) {
+				case LinkMode.None:
+				case LinkMode.Platform:
+					break;
+				default:
+					throw new MonoMacException (2007, true,
+						"Xamarin.Mac Unified API against a full .NET framework does not support linking SDK or All assemblies. Pass either the `-nolink` or `-linkplatform` flag.");
+				}
+			}
 
 			ValidateXcode ();
 
@@ -699,6 +710,13 @@ namespace Xamarin.Bundler {
 				if (!File.Exists (root_assembly))
 					throw new MonoMacException (7, true, "The root assembly '{0}' does not exist", root_assembly);
 
+				if (IsClassic)
+					Profile.Current = new MonoMacProfile ();
+				else if (IsUnifiedFullXamMacFramework || IsUnifiedFullSystemFramework)
+					Profile.Current = new XamarinMacProfile (arch == "x86_64" ? 64 : 32);
+				else
+					Profile.Current = new MacMobileProfile (arch == "x86_64" ? 64 : 32);
+
 				string root_wo_ext = Path.GetFileNameWithoutExtension (root_assembly);
 				if (Profile.IsSdkAssembly (root_wo_ext) || Profile.IsProductAssembly (root_wo_ext))
 					throw new MonoMacException (3, true, "Application name '{0}.exe' conflicts with an SDK or product assembly (.dll) name.", root_wo_ext);
@@ -831,7 +849,7 @@ namespace Xamarin.Bundler {
 				else
 					throw ErrorHelper.CreateError (0099, "Internal error \"AOT with unexpected profile.\" Please file a bug report with a test case (http://bugzilla.xamarin.com).");
 
-				AOTCompiler compiler = new AOTCompiler (aotOptions, compilerType);
+				AOTCompiler compiler = new AOTCompiler (aotOptions, compilerType, !EnableDebug);
 				compiler.Compile (mmp_dir);
 				Watch ("AOT Compile", 1);
 			}
@@ -1209,6 +1227,8 @@ namespace Xamarin.Bundler {
 				args.Append ("-arch ").Append (arch).Append (' ');
 				if (arch == "x86_64")
 					args.Append ("-fobjc-runtime=macosx ");
+				if (!embed_mono)
+					args.Append ("-DDYNAMIC_MONO_RUNTIME ");
 				bool appendedObjc = false;
 				foreach (var assembly in BuildTarget.Assemblies) {
 					if (assembly.LinkWith != null) {
